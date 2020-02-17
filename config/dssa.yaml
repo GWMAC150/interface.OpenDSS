@@ -1,0 +1,10 @@
+!DSSAConfig
+dbhost:     192.168.56.201
+dbport:     8086
+dbdrop:     True
+stepsize:  15m
+number:  96
+mode: daily
+time_base:  now
+time_delta: 1s
+dbname:     opendss
