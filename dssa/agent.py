@@ -133,7 +133,7 @@ class Agent():
                         res = getattr(self.element,sub.attr)
                         print("sub: %s.%s.%s = %s" % (sub.obj,sub.name,sub.attr, str(res)))
                         sub.client.sendClient(sub.obj,sub.name,sub.attr,res,now)
-                        self.results[key] = (sub.obj,sub.name,sub.attr,res,res,now)
+                        self.results[key] = (sub.obj,sub.name,sub.attr,res,now)
                     if key in self.logSpec:
                         self.dbase.log(now,self.logSpec[key],res)
                         
@@ -150,9 +150,6 @@ class Agent():
                         setattr(getattr(self.circuit,obj_name),"Name",pub.name)
                         setattr(getattr(self.circuit,obj_name),pub.attr,pub.value)
                     key = "%s.%s.%s" %(pub.obj, pub.name, pub.attr)
-                    self.circuit.SetActiveElement(pub.obj+'.'+pub.name)
-                    res = getattr(self.element,sub.attr)
-                    self.results[key] = (pub.obj,pub.name,pub.attr,res,res,now)
                     if key in self.logSpec:
                         self.dbase.log(self.time,self.logSpec[key],pub.value)
             self.Solution.FinishTimeStep()
@@ -246,11 +243,19 @@ class Agent():
             res = self.results[key]
             return ('ans',res[0],res[1],res[2],res[3],res[4])
         else:
-            return ('ans',)
+            self.circuit.SetActiveElement(obj+'.'+name)
+            val = str(self.element.Properties(attr).Val)
+            self.text.Command = "get time"
+            now = self.text.Result
+            if val:
+                self.results[key] = (obj,name,attr,val,now)
+                return ('ans', obj,name,attr,val,now)
+            else:
+                return('ans',)
         
     def publish(self,client,pub):
         obj,name,attr,value = pub
-        topic = '%s.%s' % (obj,attr)
+#        topic = '%s.%s' % (obj,attr)
         with self.lock:
             self.pubs += [Publish(client=client,obj=obj,name=name,attr=attr,value=value)]
         
