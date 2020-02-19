@@ -91,25 +91,12 @@ class DSSAClient(threading.Thread):
         with self.lock:
             self.conn.root.publish(pub)
             
-    def reply(self,id,msg):
-        try: 
-            cmd = msg[0]
-            assert(cmd == 'ans')
-            rep = [cmd,id] + [msg[1:]]
-            self.logger.info("run: sending reply = %s" % str(rep))
-            self.relay.send_pyobj(rep)
-        except:
-            info = sys.exc_info()
-            self.logger.error("Error in reply '%s': %s %s" % (cmd, info[0], info[1]))
-            traceback.print_exc()
-            raise
-            
-    def query(self, id, queries):
+    def query(self, clid, queries):
         if self.conn:
             with self.lock: 
                 for query in queries:
                     result = self.conn.root.query(query)
-                    self.reply(id,result)
+                    return(result)
         else:
             self.queries = queries
 
@@ -203,7 +190,6 @@ def control():
         val = '1' if control.counter < control.duty else '0'
         control.counter = (control.counter + 1) % control.period
         return val
-#         return ("sw_loadshed", "sw_status", val, "")    # Command message
 control.counter = 0
 control.period = 20
 control.duty = 10 
@@ -242,11 +228,14 @@ if __name__ == '__main__':
                 else:
                     pass
             if msg:
+                result = theDRunner.query(clientName,[("Load","S11a","kvar")]) # Query interface
+                print(result)
+                kvar = float(result[4])
                 duty = control()
                 if duty == '1':
-                    cmd = ("Load","S11a","kvar",40.0) # publish interface
+                    cmd = ("Load","S11a","kvar",kvar) # publish interface
                 elif duty == '0':
-                    cmd = ("Load","S11a","kvar",20.0) # publish interface
+                    cmd = ("Load","S11a","kvar",kvar*2) # publish interface
                 print(cmd)
                 command.send_pyobj(cmd)
             if not running: break
