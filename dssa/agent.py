@@ -152,6 +152,7 @@ class Agent():
                     key = "%s.%s.%s" %(pub.obj, pub.name, pub.attr)
                     if key in self.logSpec:
                         self.dbase.log(self.time,self.logSpec[key],pub.value)
+                self.pubs = []
             self.Solution.FinishTimeStep()
             time.sleep(self.conf.time_delta)
 #        while time_granted < time_stop:
