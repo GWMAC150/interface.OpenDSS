@@ -91,7 +91,7 @@ class DSSAClient(threading.Thread):
         with self.lock:
             self.conn.root.publish(pub)
             
-    def query(self, clid, queries):
+    def query(self, queries):
         if self.conn:
             with self.lock: 
                 for query in queries:
@@ -228,7 +228,7 @@ if __name__ == '__main__':
                 else:
                     pass
             if msg:
-                result = theDRunner.query(clientName,[("Load","S11a","kvar")]) # Query interface
+                result = theDRunner.query([("Load","S11a","kvar")]) # Query interface
                 print(result)
                 kvar = float(result[4])
                 duty = control()
