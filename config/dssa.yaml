@@ -3,8 +3,9 @@ dbhost:     192.168.56.201
 dbport:     8086
 dbdrop:     True
 stepsize:  15m
-number:  96
+number_of_steps:  96
 mode: daily
 time_base:  now
-time_delta: 1s
+time_delta: 6s
+wait_for_cmd: 5s
 dbname:     opendss
