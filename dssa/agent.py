@@ -50,6 +50,9 @@ class Agent():
                     self.conf = yaml.load(f,Loader=yaml.Loader)
         except:
                 raise
+                
+        assert Config.convert_duration(self.conf.stepsize) > self.conf.wait_for_cmd, "Simulation step size must be greater than the waiting period for the controller response"
+        assert self.conf.time_delta > self.conf.wait_for_cmd, "The physical time step must be greater than the waiting period for the controller response"
             
         if self.conf.time_base == "now":
             self.time = datetime.datetime.utcnow()
@@ -73,7 +76,7 @@ class Agent():
         self.clients = {} 
         self.clientSubs = {}
         self.results = {} 
-        self.lock = RLock() 
+        self.lock = RLock()
 
     def launch(self,cmd,logfile,env):
         context = os.environ.copy()
@@ -116,13 +119,19 @@ class Agent():
         mode = self.conf.mode
         stepsize = self.conf.stepsize
         number = self.conf.number
+        wait_for_cmd = self.conf.wait_for_cmd
         self.text.Command = "compile [" + self.model + "]"
         self.text.Command = "New EnergyMeter.Feeder Line.L115 1"
         self.text.Command = "set mode=%s stepsize=%s number=%d" % (mode,stepsize, number)
         originalSteps = self.Solution.Number
-        self.Solution.Number = 1;
+        self.Solution.Number = 1
+        self.Solution.MaxControlIterations = 20
+        actionMap = {0: self.set_received_commands}
+        hour = 1
+        sec = wait_for_cmd
         for steps in range(originalSteps):
-            self.Solution.SolveSnap()
+            time1 = time.perf_counter()
+#            self.Solution.SolveSnap()
             self.text.Command = "get time"
             now = self.text.Result
             print("Timestamp: %s" % (str(now)))
@@ -136,25 +145,30 @@ class Agent():
                         self.results[key] = (sub.obj,sub.name,sub.attr,res,now)
                     if key in self.logSpec:
                         self.dbase.log(now,self.logSpec[key],res)
-                        
-            with self.lock:
-                for pub in self.pubs:
-#                    topic = pub.topic.encode('utf-8')
-#                    value = pub.value.encode('utf-8')
-                    print(now, pub.obj, pub.name, pub.attr, pub.value)
-#                    fncs.publish(topic, value)
-                    if pub.value == 'Open' or pub.value == 'Close':
-                        self.text.Command = "%s %s.%s 1" %(pub.value, pub.obj, pub.name)
-                    else:
-                        obj_name = pub.obj+"s"
-                        setattr(getattr(self.circuit,obj_name),"Name",pub.name)
-                        setattr(getattr(self.circuit,obj_name),pub.attr,pub.value)
-                    key = "%s.%s.%s" %(pub.obj, pub.name, pub.attr)
-                    if key in self.logSpec:
-                        self.dbase.log(self.time,self.logSpec[key],pub.value)
-                self.pubs = []
+            self.Solution.InitSnap()
+            iteration = 0
+            time.sleep(wait_for_cmd)
+            while not self.Solution.ControlActionsDone:
+                self.Solution.SolveNoControl()
+                actioncode = devicehandle = 0
+                if iteration == 0:
+                    self.circuit.CtrlQueue.Push(hour, sec, actioncode, devicehandle)
+                self.Solution.CheckControls()        
+                while self.circuit.CtrlQueue.PopAction != 0:
+                    devicehandle = self.circuit.CtrlQueue.DeviceHandle
+                    actioncode = self.circuit.CtrlQueue.ActionCode
+                    actionFunction = actionMap[devicehandle]
+                    actionFunction()
+                iteration += 1
+                if iteration >= self.Solution.MaxControlIterations:
+                    print("Maximum Control Iterations reached!!!")
+                    break
+            
             self.Solution.FinishTimeStep()
-            time.sleep(self.conf.time_delta)
+            time2 = time.perf_counter()
+            timeelapsed = time2 - time1
+            duration = self.conf.time_delta - timeelapsed
+            time.sleep(duration)
 #        while time_granted < time_stop:
 #            time1 = time.perf_counter()
 #            time_prev = time_granted
@@ -209,6 +223,26 @@ class Agent():
 #            sleep = time_pace-delta
 #            if sleep > 0:
 #                time.sleep(sleep)
+            
+    def set_received_commands(self):
+        with self.lock:
+            self.text.Command = "get time"
+            now = self.text.Result
+            for pub in self.pubs:
+#                topic = pub.topic.encode('utf-8')
+#                value = pub.value.encode('utf-8')
+                print(now, pub.obj, pub.name, pub.attr, pub.value)
+                if pub.value == 'Open' or pub.value == 'Close':
+                    self.text.Command = "%s %s.%s 1" %(pub.value, pub.obj, pub.name)
+                else:
+                    self.circuit.SetActiveElement(pub.obj+'.'+pub.name)
+                    curr_val = self.element.Properties(pub.attr).Val
+                    self.element.Properties(pub.attr).Val = pub.value
+                key = "%s.%s.%s" %(pub.obj, pub.name, pub.attr)
+                self.results[key] = (pub.obj,pub.name,pub.attr,curr_val,now)
+                if key in self.logSpec:
+                    self.dbase.log(self.time,self.logSpec[key],pub.value)
+            self.pubs = []
 
     def terminate(self,_ign1,_ign2):
         self.stop()
