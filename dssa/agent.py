@@ -12,7 +12,6 @@ import time
 import datetime
 import signal
 import yaml
-#import fncs
 import re
 from collections import namedtuple
 from threading import RLock
@@ -93,9 +92,6 @@ class Agent():
     def start(self):
         self.service = ServiceThread(self,self.conf.host,self.conf.port)
         self.service.start() 
-#        self.broker = self.launch(['fncs_broker',"2"],'broker.log',{"FNCS_TRACE" : "yes", "FNCS_LOG_STDOUT" : "yes"})
-#        self.engine = self.launch(['gridlabd',self.model],'gridlabd.log',{"FNCS_FATAL": "YES", "FNCS_LOG_STDOUT" : "yes"})
-#        os.environ['FNCS_CONFIG_FILE'] = self.fncs
         self.dbase = Database(self.conf,self.logSpec)
         pythoncom.CoInitialize()
         self.engine = win32com.client.Dispatch("OpenDSSEngine.DSS")
@@ -113,25 +109,24 @@ class Agent():
         print(self.engine.Version)
         
     def run(self):
-#        time_granted = 0
-#        fncs.initialize()
-#        time_stop = self.conf.time_stop
+
+# Select the model and set the required parameters
         mode = self.conf.mode
         stepsize = self.conf.stepsize
-        number = self.conf.number
+        number = self.conf.number_of_steps
         wait_for_cmd = self.conf.wait_for_cmd
         self.text.Command = "compile [" + self.model + "]"
         self.text.Command = "New EnergyMeter.Feeder Line.L115 1"
+# Set the simulation mode, step size and the duration
         self.text.Command = "set mode=%s stepsize=%s number=%d" % (mode,stepsize, number)
         originalSteps = self.Solution.Number
-        self.Solution.Number = 1
-        self.Solution.MaxControlIterations = 20
-        actionMap = {0: self.set_received_commands}
+        self.Solution.Number = 1    # this steps the simulation by one at a time
+        self.Solution.MaxControlIterations = 20 # prevent the control loop from cycling infinitely
+        actionMap = {0: self.set_received_commands} # hash map for the control action
         hour = 1
         sec = wait_for_cmd
         for steps in range(originalSteps):
             time1 = time.perf_counter()
-#            self.Solution.SolveSnap()
             self.text.Command = "get time"
             now = self.text.Result
             print("Timestamp: %s" % (str(now)))
@@ -145,15 +140,18 @@ class Agent():
                         self.results[key] = (sub.obj,sub.name,sub.attr,res,now)
                     if key in self.logSpec:
                         self.dbase.log(now,self.logSpec[key],res)
-            self.Solution.InitSnap()
+            self.Solution.InitSnap()    # perform initial solve
             iteration = 0
-            time.sleep(wait_for_cmd)
+            time.sleep(wait_for_cmd)    # wait for control commands
             while not self.Solution.ControlActionsDone:
-                self.Solution.SolveNoControl()
+                self.Solution.SolveNoControl()  # power flow calculations without control
                 actioncode = devicehandle = 0
                 if iteration == 0:
+                    # push the control action into queue
                     self.circuit.CtrlQueue.Push(hour, sec, actioncode, devicehandle)
-                self.Solution.CheckControls()        
+                self.Solution.CheckControls()   # OpenDSS pushes active to queue
+                # get items from the control action list
+                # that needs to be handled now
                 while self.circuit.CtrlQueue.PopAction != 0:
                     devicehandle = self.circuit.CtrlQueue.DeviceHandle
                     actioncode = self.circuit.CtrlQueue.ActionCode
@@ -165,64 +163,12 @@ class Agent():
                     break
             
             self.Solution.FinishTimeStep()
+# step the simulation
             time2 = time.perf_counter()
             timeelapsed = time2 - time1
             duration = self.conf.time_delta - timeelapsed
             time.sleep(duration)
-#        while time_granted < time_stop:
-#            time1 = time.perf_counter()
-#            time_prev = time_granted
-#            time_granted = fncs.time_request(time_stop)
-#            time_advance = datetime.timedelta(seconds=(time_granted - time_prev))
-#            self.time = self.time + time_advance
-#            events = fncs.get_events()
-#            for topic in events:
-#                value = fncs.get_value(topic)
-#                print((time_granted, topic, value))
-#                key = topic.decode('utf-8')
-#                resp = value.decode('utf-8')
-#                result = None
-#                drop = None
-#                with self.lock:
-#                    if key in self.logSpec:
-#                        drop = self.logSpec[key].unit
-#                    elif key in self.subs:
-#                        drop = self.subs[key][0].unit
-#                    else:
-#                        pass
-#                    resp = drop.sub('',resp) if drop != None else resp
-#                    try: 
-#                        result = float(resp)
-#                    except:
-#                        try: 
-#                            c_resp = resp[0:-1]+'j' if resp[-1] == 'i' else resp
-#                            result = complex(c_resp)
-#                        except: 
-#                            try: 
-#                                result = str(resp)
-#                            except: pass
-#                    obj,attr = key.split('.')
-#                    self.results[key] = (obj,attr,result,time_granted)
-#                    if key in self.subs:
-#                        for sub in self.subs[key]:
-#                            sub.client.sendClient(sub.obj,sub.attr,result,time_granted)
-#                if key in self.logSpec:
-#                    self.dbase.log(self.time,self.logSpec[key],resp)
-#            with self.lock:
-#                for pub in self.pubs:
-#                    topic = pub.topic.encode('utf-8')
-#                    value = pub.value.encode('utf-8')
-#                    print((time_granted,topic,value))
-#                    fncs.publish(topic, value)
-#                    if pub.topic in self.logSpec:
-#                        self.dbase.log(self.time,self.logSpec[pub.topic],pub.value)
-#                self.pubs = []
-#            self.dbase.flush()
-#            time2 = time.perf_counter()
-#            delta = time2-time1
-#            sleep = time_pace-delta
-#            if sleep > 0:
-#                time.sleep(sleep)
+
             
     def set_received_commands(self):
         with self.lock:
@@ -290,7 +236,6 @@ class Agent():
         
     def publish(self,client,pub):
         obj,name,attr,value = pub
-#        topic = '%s.%s' % (obj,attr)
         with self.lock:
             self.pubs += [Publish(client=client,obj=obj,name=name,attr=attr,value=value)]
         
