@@ -233,11 +233,12 @@ if __name__ == '__main__':
                 kvar = float(result[4])
                 duty = control()
                 if duty == '1':
-                    cmd = ("Load","S11a","kvar",kvar) # publish interface
+                    cmd = ("Load","S11a","kvar",kvar/2) # publish interface
                 elif duty == '0':
                     cmd = ("Load","S11a","kvar",kvar*2) # publish interface
                 print(cmd)
                 command.send_pyobj(cmd)
+            msg = None
             if not running: break
     
         theDRunner.join()
