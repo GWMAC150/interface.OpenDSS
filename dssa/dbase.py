@@ -41,7 +41,7 @@ class Database(object):
                         
     def log(self, when, spec,value):
         timeSpec = when.isoformat() + 'Z'
-        obj, attr = spec.obj, spec.attr 
+        obj, name, attr = spec.obj, spec.name, spec.attr
         if value != None:
             fields = None
             try:
@@ -49,13 +49,16 @@ class Database(object):
                 fields = { "value" : floatValue }
             except:
                 try:
-                    c_value = value[0:-1]+'j' if value[-1] == 'i' else value
-                    complexValue = complex(c_value)
-                    (mag,phi) = cmath.polar(complexValue)
-                    phase = math.degrees(phi)
-                    fields = { "mag" : mag, 
-                              "phi" : phase 
-                              }
+                    if type(value) == tuple:
+                        # taking the phase A value by default
+#                        c_value = value[0]+"+"+value[1]+"j"
+#                        print(c_value)
+                        complexValue = complex(value[0],value[1])
+                        (mag,phi) = cmath.polar(complexValue)
+                        phase = math.degrees(phi)
+                        fields = { "mag" : mag, 
+                                  "phi" : phase 
+                                  }
                 except:
                     sValue = str(value)
                     try: 
@@ -65,7 +68,7 @@ class Database(object):
             if fields != None:
                 record = {  "time": timeSpec,
                             "measurement": attr,
-                            "tags" : { "object" : obj },
+                            "tags" : { "object" : obj+"."+name },
                             "fields" : fields
                             }
                 self.records.append(record)

@@ -26,7 +26,7 @@ from dssa.dbase import Database
 # namedtuple 
 Subscribe = namedtuple("Subscriber", "client obj name attr")
 Publish   = namedtuple("Publish", "client obj name attr value")
-LogSpec   = namedtuple("LogSpec", "obj attr unit")
+LogSpec   = namedtuple("LogSpec", "obj name attr")
 
 class Agent():
     TIME_FORMAT = "%Y-%m-%d %Y %H:%M:%S"
@@ -37,11 +37,8 @@ class Agent():
         self.cfile = 'dssa.yaml'
         
         assert os.path.isfile(self.model)
-#        assert os.path.isfile(self.logs)
+        assert os.path.isfile(self.logs)
         assert os.path.isfile(self.cfile)
-        
-        # signal.signal(signal.SIGTERM,self.terminate)
-        # signal.signal(signal.SIGINT,self.terminate)
         
         try:
             Config.setup()
@@ -63,10 +60,10 @@ class Agent():
             with open(self.logs,'r') as f:
                 content = json.load(f)
                 for item in content:
-                    (obj,attr,unit) = item
-                    key = '%s.%s' % (obj,attr)
-                    drop =  re.compile(r' %s'% unit)
-                    self.logSpec[key] = LogSpec(obj=obj,attr=attr,unit=drop)
+                    (obj,name,attr) = item
+                    key = '%s.%s.%s' % (obj,name,attr)
+#                    drop =  re.compile(r' %s'% unit)
+                    self.logSpec[key] = LogSpec(obj=obj,attr=attr,name=name)
         except:
             raise
         
@@ -109,6 +106,8 @@ class Agent():
         print(self.engine.Version)
         
     def run(self):
+        
+        time_advance = datetime.timedelta(seconds=Config.convert_duration(self.conf.stepsize))
 
 # Select the model and set the required parameters
         mode = self.conf.mode
@@ -123,9 +122,9 @@ class Agent():
         self.Solution.Number = 1    # this steps the simulation by one at a time
         self.Solution.MaxControlIterations = 20 # prevent the control loop from cycling infinitely
         actionMap = {0: self.set_received_commands} # hash map for the control action
-        hour = 1
-        sec = wait_for_cmd
+        hour = 0
         for steps in range(originalSteps):
+            pubList = []
             time1 = time.perf_counter()
             self.text.Command = "get time"
             now = self.text.Result
@@ -139,16 +138,27 @@ class Agent():
                         sub.client.sendClient(sub.obj,sub.name,sub.attr,res,now)
                         self.results[key] = (sub.obj,sub.name,sub.attr,res,now)
                     if key in self.logSpec:
-                        self.dbase.log(now,self.logSpec[key],res)
+                        # send result
+                        self.dbase.log(self.time,self.logSpec[key],res)
             self.Solution.InitSnap()    # perform initial solve
             iteration = 0
-            time.sleep(wait_for_cmd)    # wait for control commands
             while not self.Solution.ControlActionsDone:
                 self.Solution.SolveNoControl()  # power flow calculations without control
-                actioncode = devicehandle = 0
+                devicehandle = actioncode = 0
                 if iteration == 0:
-                    # push the control action into queue
-                    self.circuit.CtrlQueue.Push(hour, sec, actioncode, devicehandle)
+                    countdown = wait_for_cmd
+                    sec = 0
+                    while countdown > 0:
+                        time.sleep(1)    # wait for control commands
+                        sec = sec + 1
+                        with self.lock:
+                            pubList.append(self.pubs)
+                            self.pubs = []
+                        # push the control action into queue
+                        if len(pubList[actioncode]) > 0:
+                            self.circuit.CtrlQueue.Push(hour, sec, actioncode, devicehandle)
+                        actioncode += 1
+                        countdown = countdown - 1
                 self.Solution.CheckControls()   # OpenDSS pushes active to queue
                 # get items from the control action list
                 # that needs to be handled now
@@ -156,27 +166,29 @@ class Agent():
                     devicehandle = self.circuit.CtrlQueue.DeviceHandle
                     actioncode = self.circuit.CtrlQueue.ActionCode
                     actionFunction = actionMap[devicehandle]
-                    actionFunction()
+                    actionFunction(pubList[actioncode])
                 iteration += 1
                 if iteration >= self.Solution.MaxControlIterations:
                     print("Maximum Control Iterations reached!!!")
                     break
             
             self.Solution.FinishTimeStep()
+            
+            self.dbase.flush()
+# keep track of time steps in simulation time for logging
+            self.time = self.time + time_advance
 # step the simulation
             time2 = time.perf_counter()
             timeelapsed = time2 - time1
             duration = self.conf.time_delta - timeelapsed
-            time.sleep(duration)
-
+            if duration > 0:
+                time.sleep(duration)
             
-    def set_received_commands(self):
+    def set_received_commands(self,pubs):
         with self.lock:
             self.text.Command = "get time"
             now = self.text.Result
-            for pub in self.pubs:
-#                topic = pub.topic.encode('utf-8')
-#                value = pub.value.encode('utf-8')
+            for pub in pubs:
                 print(now, pub.obj, pub.name, pub.attr, pub.value)
                 if pub.value == 'Open' or pub.value == 'Close':
                     self.text.Command = "%s %s.%s 1" %(pub.value, pub.obj, pub.name)
@@ -188,7 +200,6 @@ class Agent():
                 self.results[key] = (pub.obj,pub.name,pub.attr,curr_val,now)
                 if key in self.logSpec:
                     self.dbase.log(self.time,self.logSpec[key],pub.value)
-            self.pubs = []
 
     def terminate(self,_ign1,_ign2):
         self.stop()
@@ -201,9 +212,7 @@ class Agent():
 #        try: self.engine.kill()
 #        except: pass
         try: self.dbase.stop()
-        except: pass        
-#        try: fncs.finalize()
-#        except: pass 
+        except: pass
                
     def subscribe(self,client,sub):
         obj,name,attr = sub
@@ -220,19 +229,20 @@ class Agent():
     def query(self,client,query):
         obj,name,attr = query
         key = '%s.%s.%s' % (obj,name,attr)
-        if key in self.results:
-            res = self.results[key]
-            return ('ans',res[0],res[1],res[2],res[3],res[4])
-        else:
-            self.circuit.SetActiveElement(obj+'.'+name)
-            val = str(self.element.Properties(attr).Val)
-            self.text.Command = "get time"
-            now = self.text.Result
-            if val:
-                self.results[key] = (obj,name,attr,val,now)
-                return ('ans', obj,name,attr,val,now)
+        with self.lock:
+            if key in self.results:
+                res = self.results[key]
+                return ('ans',res[0],res[1],res[2],res[3],res[4])
             else:
-                return('ans',)
+                self.circuit.SetActiveElement(obj+'.'+name)
+                val = str(self.element.Properties(attr).Val)
+                self.text.Command = "get time"
+                now = self.text.Result
+                if val:
+                    self.results[key] = (obj,name,attr,val,now)
+                    return ('ans', obj,name,attr,val,now)
+                else:
+                    return('ans',)
         
     def publish(self,client,pub):
         obj,name,attr,value = pub
