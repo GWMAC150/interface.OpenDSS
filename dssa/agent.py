@@ -194,10 +194,10 @@ class Agent():
                     self.text.Command = "%s %s.%s 1" %(pub.value, pub.obj, pub.name)
                 else:
                     self.circuit.SetActiveElement(pub.obj+'.'+pub.name)
-                    curr_val = self.element.Properties(pub.attr).Val
+#                    curr_val = self.element.Properties(pub.attr).Val
                     self.element.Properties(pub.attr).Val = pub.value
                 key = "%s.%s.%s" %(pub.obj, pub.name, pub.attr)
-                self.results[key] = (pub.obj,pub.name,pub.attr,curr_val,now)
+                self.results[key] = (pub.obj,pub.name,pub.attr,pub.value,now)
                 if key in self.logSpec:
                     self.dbase.log(self.time,self.logSpec[key],pub.value)
 
