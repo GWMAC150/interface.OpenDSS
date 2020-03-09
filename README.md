@@ -16,6 +16,8 @@ The interface requires three types of files to run.
 
 The OpenDSS simulation proceeds in the following way (taken from the OpenDSS manual):
 
+![alt text](OpenDSSCOM.png "OpenDSS COM interface")
+
 - The Control Queue gets populated every time Control Objects are polled and a power flow solution is calculated (Pushed by the associated Control Objects).
 
 - The Dispatcher pops items from the queue and dispatches them to the appropriate Control Object when the appropriate time arrives (To a virtual function called DoPendingAction in the module that pushed the action code onto the control queue).
