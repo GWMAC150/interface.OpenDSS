@@ -54,3 +54,7 @@ The designed agent co-ordinates with the running simulation by reading values an
 Break if maximum iterations reached or list is empty.
 
 - Finish the current time step.
+
+## Running the agent
+
+To run the agent, launch the python script `riaps_dssa.py` with the application name and the application file path as command line arguments. The agent is designed to utilize the WIndows COM interface so it must be run in a Windows environment.
