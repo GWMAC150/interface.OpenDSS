@@ -4,6 +4,17 @@
 
 It consists of an OpenDSS agent that sets up a simulation and can communicate with it using the COM interface. On one hand, the agent can receive requests from a RIAPS device component to read values of specific network parameters which it can relay to the RIAPS device component. On the other hand, it can also receive commands to set certain parameter values for the network elements.
 
+## Network Setup
+
+The agent uses the Windows COM interface to communicate with OpenDSS. Thus, a complete experimental setup requires a Windows host machine on which OpenDSS is installed and the agent is running, along with a Virtual Machine running Linux which has RIAPS for running the control algorithm.
+
+The network connection needs to be configured by setting up a "host only network". The steps to do so using Virtual Box are as follows:
+
+1. Open Setings menu in Virtual Box.
+2. Within the Network list, select a new Adapter tab and enable it by checking the "Enable Network Adapter" checkbox.
+3. In the "Attached to" field select "Host-only Adapter".
+4. Save the settings.
+
 ## Configuration
 
 The interface requires three types of files to run.
