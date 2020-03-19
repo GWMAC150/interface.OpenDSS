@@ -21,7 +21,7 @@ The interface requires three types of files to run.
 
 1. An OpenDSS model file "APP.dss" that defines the simulation network.
 2. A logging configuration file "APP.dsl" that contains the "object, name, attribute" tuples that the deveoper is interested in logging to a remote InfluxDB database. The specified values must either be subscribed to by the control algorithm or published to for controliing.
-3. A "DSSA.yaml" configuration file for the simulation properties. This file contains values such as the solution mode, step size, physical time step etc (see the config folder for a sample).
+3. A "DSSA.yaml" configuration file for the simulation properties. This file contains values such as the solution mode, step size, physical time step etc (see the sample folder).
 
 ## Simulation Process
 
