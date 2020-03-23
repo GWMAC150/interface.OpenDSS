@@ -23,13 +23,17 @@ To run the agent the following packages need to be installed:
 
 1. OpenDSS Version 8.6.5.3.
 2. It is preferable to have a Python environment like Anaconda.
-3. InfluxDB service: http://richardn.ca/2019/01/04/installing-influxdb-on-windows/
-4. Grafana for visualization: https://grafana.com/
+3. RPyC: `pip install rpyc` (within Anaconda).
+4. netifaces: `conda install -c conda-forge netifaces` (within Anaconda).
+5. influxdb: `pip install influxdb`
+6. pyzmq: should be available by default if using Anaconda. If not, then install it using `pip install pyzmq`.
+7. InfluxDB service: http://richardn.ca/2019/01/04/installing-influxdb-on-windows/
+8. Grafana for visualization: https://grafana.com/
 
 
 ## Configuration
 
-The interface requires three types of files to run.
+The agent interface requires three types of files to run.
 
 1. An OpenDSS model file "APP.dss" that defines the simulation network.
 2. A logging configuration file "APP.dsl" that contains the "object, name, attribute" tuples that the deveoper is interested in logging to a remote InfluxDB database. The specified values must either be subscribed to by the control algorithm or published to for controliing.
@@ -87,4 +91,4 @@ Break if maximum iterations reached or list is empty.
 
 ## Running the agent
 
-To run the agent, launch the python script `riaps_dssa.py` with the application name and the application file path as command line arguments. The agent is designed to utilize the Windows COM interface so it must be run in a Windows environment. To execute the example provided, run `python3 riaps_dssa.py <path to sample> "IEEE123Master"`.
+Before running the agent, make sure to run the InfluxDB server on the host machine to connect to the database. To run the agent, launch the python script `riaps_dssa.py` with the application name and the application file path as command line arguments. The agent is designed to utilize the Windows COM interface so it must be run in a Windows environment. To execute the example provided, run `python3 riaps_dssa.py <path to sample> "IEEE123Master"`.
