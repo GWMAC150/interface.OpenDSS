@@ -27,8 +27,9 @@ To run the agent the following packages need to be installed:
 4. netifaces: `conda install -c conda-forge netifaces` (within Anaconda).
 5. influxdb: `pip install influxdb`
 6. pyzmq: should be available by default if using Anaconda. If not, then install it using `pip install pyzmq`.
-7. InfluxDB service: http://richardn.ca/2019/01/04/installing-influxdb-on-windows/
-8. Grafana for visualization: https://grafana.com/
+7. pywin32: should be available by default if using Anaconda. If not, then install it using `pip install pywin32`.
+8. InfluxDB service: http://richardn.ca/2019/01/04/installing-influxdb-on-windows/
+9. Grafana for visualization: https://grafana.com/
 
 
 ## Configuration
