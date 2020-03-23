@@ -6,7 +6,9 @@ It consists of an OpenDSS agent that sets up a simulation and can communicate wi
 
 ## Network Setup
 
-The agent uses the Windows COM interface to communicate with OpenDSS. Thus, a complete experimental setup requires a Windows host machine on which OpenDSS is installed and the agent is running, along with a Virtual Machine running Linux which has RIAPS for running the control algorithm.
+The agent uses the Windows COM interface to communicate with OpenDSS. Thus, a complete experimental setup requires a Windows host machine on which OpenDSS is installed and the agent is running, along with a Virtual Machine running Linux which has RIAPS for running the control algorithm. The RIAPS nodes can be deployed in a virtual network using Mininet (see instructions on how to set up RIAPS using Mininet in the RIAPS repository).
+
+<img src="opendss_agent_arch.png" align="center" width="600">
 
 The network connection needs to be configured by setting up a "host only network". The steps to do so using Virtual Box are as follows:
 
@@ -27,7 +29,7 @@ The interface requires three types of files to run.
 
 The OpenDSS simulation proceeds in the following way (taken from the OpenDSS manual):
 
-![alt text](OpenDSSCOM.png "OpenDSS COM interface")
+![alt text](OpenDSSCOM.png =400x400 "OpenDSS COM interface")
 
 - The Control Queue gets populated every time Control Objects are polled and a power flow solution is calculated (Pushed by the associated Control Objects).
 
