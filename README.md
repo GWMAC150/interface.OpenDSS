@@ -39,7 +39,7 @@ The interface requires three types of files to run.
 
 The OpenDSS simulation proceeds in the following way (taken from the OpenDSS manual):
 
-![alt text](OpenDSSCOM.png =400x400 "OpenDSS COM interface")
+![alt text](OpenDSSCOM.png "OpenDSS COM interface")
 
 - The Control Queue gets populated every time Control Objects are polled and a power flow solution is calculated (Pushed by the associated Control Objects).
 
