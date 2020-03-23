@@ -78,6 +78,11 @@ Break if maximum iterations reached or list is empty.
 
 - Finish the current time step.
 
+## File Description
+
+- The "dssa" directory contains the source code for the agent.
+- The "sample" directory contains an example OpenDSS model and the required configuration files for the agent to run it. The sample model is the IEE 123 Test Feeder that is provided as an example with OpenDSS installation (http://svn.code.sf.net/p/electricdss/code/trunk/Distrib/IEEETestCases/). The primary model source file is "IEEE123Master.dss".
+
 ## Running the agent
 
-To run the agent, launch the python script `riaps_dssa.py` with the application name and the application file path as command line arguments. The agent is designed to utilize the WIndows COM interface so it must be run in a Windows environment.
+To run the agent, launch the python script `riaps_dssa.py` with the application name and the application file path as command line arguments. The agent is designed to utilize the Windows COM interface so it must be run in a Windows environment. To execute the example provided, run `python3 riaps_dssa.py <path to sample> "IEEE123Master"`.
