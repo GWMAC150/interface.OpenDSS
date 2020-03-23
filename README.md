@@ -82,6 +82,8 @@ Break if maximum iterations reached or list is empty.
 
 - The "dssa" directory contains the source code for the agent.
 - The "sample" directory contains an example OpenDSS model and the required configuration files for the agent to run it. The sample model is the IEE 123 Test Feeder that is provided as an example with OpenDSS installation (http://svn.code.sf.net/p/electricdss/code/trunk/Distrib/IEEETestCases/). The primary model source file is "IEEE123Master.dss".
+- The "device" directory contains a RIAPS device component that is compatible with this agent.
+- The "testing" directory contains a "python" script that can be used as a controller to test the communication features of the agent.
 
 ## Running the agent
 
