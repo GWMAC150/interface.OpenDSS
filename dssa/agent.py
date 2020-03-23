@@ -30,12 +30,12 @@ LogSpec   = namedtuple("LogSpec", "obj name attr")
 
 class Agent():
     TIME_FORMAT = "%Y-%m-%d %Y %H:%M:%S"
-    def __init__(self,baseName):
+    def __init__(self,baseName,path):
         self.base = baseName
         self.model = baseName + '.dss'
         self.logs  = baseName + '.dsl'
         self.cfile = 'dssa.yaml'
-        
+        self.modelpath = path
         assert os.path.isfile(self.model)
         assert os.path.isfile(self.logs)
         assert os.path.isfile(self.cfile)
@@ -114,7 +114,7 @@ class Agent():
         stepsize = self.conf.stepsize
         number = self.conf.number_of_steps
         wait_for_cmd = self.conf.wait_for_cmd
-        self.text.Command = "compile [" + self.model + "]"
+        self.text.Command = "compile [" + self.modelpath + '\\' + self.model + "]"
         self.text.Command = "New EnergyMeter.Feeder Line.L115 1"
 # Set the simulation mode, step size and the duration
         self.text.Command = "set mode=%s stepsize=%s number=%d" % (mode,stepsize, number)

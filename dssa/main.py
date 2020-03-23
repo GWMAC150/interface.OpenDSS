@@ -32,7 +32,7 @@ def main(debug=True):
     global theAgent
     try:
         os.chdir(args.path)
-        theAgent = Agent(args.name)
+        theAgent = Agent(args.name, args.path)
         theAgent.start()       
         theAgent.run()       
         theAgent.stop()
