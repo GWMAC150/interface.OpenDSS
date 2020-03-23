@@ -17,6 +17,16 @@ The network connection needs to be configured by setting up a "host only network
 3. In the "Attached to" field select "Host-only Adapter".
 4. Save the settings.
 
+## Host Setup
+
+To run the agent the following packages need to be installed:
+
+1. OpenDSS Version 8.6.5.3.
+2. It is preferable to have a Python environment like Anaconda.
+3. InfluxDB service: http://richardn.ca/2019/01/04/installing-influxdb-on-windows/
+4. Grafana for visualization: https://grafana.com/
+
+
 ## Configuration
 
 The interface requires three types of files to run.
