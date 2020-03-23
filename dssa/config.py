@@ -17,7 +17,7 @@ class Config(yaml.YAMLObject):
                  host='',port=0,
                  time_base = '2000-01-01',
                  dbhost='localhost', dbport=8086, dbuser='riapsdev', dbpassword='riaps', dbname='opendss', dbdrop=True, stepsize = '15m',
-                 mode = 'daily', number = 96, time_delta = '1s'):
+                 mode = 'daily', number_of_steps = 96, time_delta = '1s', wait_for_cmd = '1s'):
         self.host = host
         self.port = port
 #        self.time_stop = time_stop
@@ -31,16 +31,18 @@ class Config(yaml.YAMLObject):
         self.dbdrop = dbdrop
         self.stepsize = stepsize
         self.mode = mode
-        self.number = number
+        self.number_of_steps = number_of_steps
         self.time_delta = self.convert_duration(time_delta)
+        self.wait_for_cmd = self.convert_duration(wait_for_cmd)
         
     def __repr__(self):
-        return "%s(host=%r,port=%r,dbhost=%r,dbport=%r,dbuser=%r,dbpassword=%r,dbname=%r,dbdrop=%r,stepsize=%r,mode=%r,number=%r,time_delta=%r)" % \
+        return "%s(host=%r,port=%r,dbhost=%r,dbport=%r,dbuser=%r,dbpassword=%r,dbname=%r,dbdrop=%r,stepsize=%r,mode=%r,number_of_steps=%r,time_delta=%r,wait_for_cmd=%r)" % \
             (self.__class__.__name__,
              self.host,self.port, 
              self.dbhost,self.dbport,self.dbuser,self.dbpassword,self.dbname,self.dbdrop,
-             self.stepsize,self.mode,self.number, self.time_delta
+             self.stepsize,self.mode,self.number_of_steps, self.time_delta,self.wait_for_cmd
              )
+    @classmethod
     def convert_duration(self,val):
         pat = re.compile(r'([hmsd])')
         interval,unit,drop=pat.split(val)
