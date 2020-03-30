@@ -47,6 +47,8 @@ class Agent():
         except:
                 raise
                 
+        self.conf.time_delta = Config.convert_duration(self.conf.time_delta)
+        self.conf.wait_for_cmd = Config.convert_duration(self.conf.wait_for_cmd)     
         assert Config.convert_duration(self.conf.stepsize) > self.conf.wait_for_cmd, "Simulation step size must be greater than the waiting period for the controller response"
         assert self.conf.time_delta > self.conf.wait_for_cmd, "The physical time step must be greater than the waiting period for the controller response"
             

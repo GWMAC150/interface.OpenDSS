@@ -32,8 +32,8 @@ class Config(yaml.YAMLObject):
         self.stepsize = stepsize
         self.mode = mode
         self.number_of_steps = number_of_steps
-        self.time_delta = self.convert_duration(time_delta)
-        self.wait_for_cmd = self.convert_duration(wait_for_cmd)
+        self.time_delta = time_delta
+        self.wait_for_cmd = wait_for_cmd
         
     def __repr__(self):
         return "%s(host=%r,port=%r,dbhost=%r,dbport=%r,dbuser=%r,dbpassword=%r,dbname=%r,dbdrop=%r,stepsize=%r,mode=%r,number_of_steps=%r,time_delta=%r,wait_for_cmd=%r)" % \
