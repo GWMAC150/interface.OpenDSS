@@ -8,4 +8,5 @@ mode: daily
 time_base:  "2020-03-04"
 time_delta: 6s
 wait_for_cmd: 5s
-dbname:     opendss
+dbname: opendss
+registry_ip: "192.168.57.1"

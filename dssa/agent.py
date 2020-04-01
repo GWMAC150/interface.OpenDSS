@@ -89,7 +89,7 @@ class Agent():
         return process
     
     def start(self):
-        self.service = ServiceThread(self,self.conf.host,self.conf.port)
+        self.service = ServiceThread(self,self.conf.host,self.conf.port,self.conf.registry_ip)
         self.service.start() 
         self.dbase = Database(self.conf,self.logSpec)
         pythoncom.CoInitialize()

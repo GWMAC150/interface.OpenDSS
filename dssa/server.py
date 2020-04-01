@@ -12,6 +12,7 @@ import zmq
 import rpyc
 from rpyc import async_
 from rpyc.utils.server import ThreadedServer
+from rpyc.utils.registry import UDPRegistryClient
 import netifaces
 # from rpyc.utils.authenticators import SSLAuthenticator
 
@@ -155,12 +156,13 @@ class ServiceThread(threading.Thread):
     Control server main execution thread.
     Note: ThreadedServer launches a new thread for every connection.  
     '''
-    def __init__(self,drunner,host,port):
+    def __init__(self,drunner,host,port,registry_ip):
         threading.Thread.__init__(self)
         global theAgent
         theAgent = drunner
         self.host = host
         self.port = port
+        self.registry_ip = registry_ip
 
     def run(self):
         '''
@@ -172,8 +174,15 @@ class ServiceThread(threading.Thread):
 #                                      ) if Config.SECURITY else None
         if self.host == "":
             self.host = getHostIP()
+            
+        registrar_obj = None
+            
+        if self.registry_ip is not None:
+            logger_obj = logger = logging.getLogger("%s/%s" % ("RIAPS_DSSA", self.port))
+            registrar_obj = UDPRegistryClient(ip=self.registry_ip, logger=logger_obj)
         self.server = ThreadedServer(Service,hostname=self.host, port=self.port,
                                      # authenticator = self.auth,
+                                     registrar = registrar_obj,
                                      auto_register=True,
                                      protocol_config = {"allow_public_attrs" : True})
         self.server.start()
