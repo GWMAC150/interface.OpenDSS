@@ -11,8 +11,10 @@ import signal
 
 from dssa.agent import Agent
 
+global theAgent
 theAgent = None
 conf = None
+
 
 def termHandler(_signal,_frame):
     global theAgent
@@ -20,11 +22,11 @@ def termHandler(_signal,_frame):
     
 ####################
 
-def main(debug=True):
+def main(def_args= None, debug=True):
     parser = argparse.ArgumentParser(description="OpenDSS agent")
     parser.add_argument("path",help="path to model directory")
     parser.add_argument("name",help="base name for .dss, .dsl files")
-    args = parser.parse_args()
+    args = parser.parse_args(def_args)
         
     signal.signal(signal.SIGTERM,termHandler)
     signal.signal(signal.SIGINT,termHandler)
@@ -40,6 +42,7 @@ def main(debug=True):
         traceback.print_exc()
         if theAgent != None: theAgent.stop()
     #print ("Unexpected error:", sys.exc_info()[0])
+#    listener_thread.join()
     sys.exit()
     
 if __name__ == '__main__':

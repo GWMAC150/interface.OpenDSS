@@ -18,6 +18,7 @@ from threading import RLock
 import json
 import win32com.client
 import pythoncom
+from threading import Event
  
 from dssa.server import ServiceThread
 from dssa.config import Config
@@ -36,6 +37,9 @@ class Agent():
         self.logs  = baseName + '.dsl'
         self.cfile = 'dssa.yaml'
         self.modelpath = path
+        self.StopFlag = False
+        self.ContinueFlag = Event()
+        self.ContinueFlag.set()
         assert os.path.isfile(self.model)
         assert os.path.isfile(self.logs)
         assert os.path.isfile(self.cfile)
@@ -126,6 +130,9 @@ class Agent():
         actionMap = {0: self.set_received_commands} # hash map for the control action
         hour = 0
         for steps in range(originalSteps):
+            if self.StopFlag:
+                break
+            self.ContinueFlag.wait()
             pubList = []
             time1 = time.perf_counter()
             self.text.Command = "get time"
@@ -207,6 +214,8 @@ class Agent():
         self.stop()
                         
     def stop(self):
+        with self.lock:
+            self.StopFlag = True
         try: self.service.stop()
         except: pass
 #        try: self.broker.kill()
@@ -276,3 +285,9 @@ class Agent():
     def delClient(self,name):
         with self.lock:
             del self.clients[name]
+            
+    def handle_pause(self,pause_flag):
+        if pause_flag:
+            self.ContinueFlag.clear()
+        else:
+            self.ContinueFlag.set()
