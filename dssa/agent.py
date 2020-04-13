@@ -192,6 +192,7 @@ class Agent():
             duration = self.conf.time_delta - timeelapsed
             if duration > 0:
                 time.sleep(duration)
+        self.stop()
             
     def set_received_commands(self,pubs):
         with self.lock:
