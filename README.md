@@ -90,7 +90,7 @@ Break if maximum iterations reached or list is empty.
 ## File Description
 
 - The "dssa" directory contains the source code for the agent.
-- The "sample" directory contains an example OpenDSS model and the required configuration files for the agent to run it. The sample model is the IEE 123 Test Feeder that is provided as an example with OpenDSS installation (http://svn.code.sf.net/p/electricdss/code/trunk/Distrib/IEEETestCases/). The primary model source file is "IEEE123Master.dss".
+- The "sample" directory contains an example OpenDSS model and the required configuration files for the agent to run it. The sample model is the IEE 123 Test Feeder that is provided as an example with OpenDSS installation (http://svn.code.sf.net/p/electricdss/code/trunk/Distrib/IEEETestCases/). The primary model source file is "IEEE123Master.dss". The "example.varcontrol" repository also contains an example RIAPS distributed application that is compatible with this model. For an end to end demo, please clone that repository onto a RIAPS installed VM.
 - The "device" directory contains a RIAPS device component that is compatible with this agent.
 - The "testing" directory contains a "python" script that can be used as a controller to test the communication features of the agent.
 
