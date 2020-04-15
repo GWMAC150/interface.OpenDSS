@@ -62,7 +62,7 @@ class guiclient():
         self.dssgui.mainloop()
         
     def select_folder(self):
-        self.dssgui.app_dir = askdirectory(initialdir="C:/", title="Select simulation file")
+        self.dssgui.app_dir = askdirectory(initialdir=os.getcwd(), title="Select simulation file")
         self.folder_label['text']=self.dssgui.app_dir
         
     def select_file(self):
