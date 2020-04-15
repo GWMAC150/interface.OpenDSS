@@ -97,4 +97,6 @@ Before running the agent, make sure to run the InfluxDB server if logging is req
 
 - launch the agent gui by running the `dssa_gui.py` python script. On the gui, select the folder containing the model and the model file. Then click on "Start" to start the simulation. it also has "Pause/Resume" and "Stop" buttons for their corrsponding functions.
 
+![alt text](gui.png "DSSA Agent Launcher GUI")
+
 - Alternativiely, launch the python script `riaps_dssa.py` with the application name and the application file path as command line arguments. The agent is designed to utilize the Windows COM interface so it must be run in a Windows environment. To execute the example provided, run `python riaps_dssa.py <path to sample> "IEEE123Master"`.
