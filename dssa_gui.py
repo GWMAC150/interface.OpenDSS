@@ -78,7 +78,7 @@ class guiclient():
         print('starting simulation...')
         
     def handle_stop(self):
-        self.sim_thread.cleanup()
+        self.sim_thread.cleanup() 
         self.sim_thread.join()
         print("simulation stopped")
         

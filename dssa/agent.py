@@ -40,9 +40,9 @@ class Agent():
         self.StopFlag = False
         self.ContinueFlag = Event()
         self.ContinueFlag.set()
-        assert os.path.isfile(self.model)
-        assert os.path.isfile(self.logs)
-        assert os.path.isfile(self.cfile)
+
+        assert os.path.isfile(self.model), "specified model file not found in path"
+        assert os.path.isfile(self.cfile), "configuration file dssa.yaml not found in path"
         
         try:
             Config.setup()
@@ -62,16 +62,19 @@ class Agent():
             self.time =  datetime.datetime.strptime(self.conf.time_base,"%Y-%m-%d")
             
         self.logSpec = {}
-        try:
-            with open(self.logs,'r') as f:
-                content = json.load(f)
-                for item in content:
-                    (obj,name,attr) = item
-                    key = '%s.%s.%s' % (obj,name,attr)
-#                    drop =  re.compile(r' %s'% unit)
-                    self.logSpec[key] = LogSpec(obj=obj,attr=attr,name=name)
-        except:
-            raise
+        if os.path.isfile(self.logs):
+            try:
+                with open(self.logs,'r') as f:
+                    content = json.load(f)
+                    for item in content:
+                        (obj,name,attr) = item
+                        key = '%s.%s.%s' % (obj,name,attr)
+    #                    drop =  re.compile(r' %s'% unit)
+                        self.logSpec[key] = LogSpec(obj=obj,attr=attr,name=name)
+            except:
+                raise
+        else:
+            print("dsl log file  not found for the model, continuing without logging")
         
         self.subs = {}  # obj.attr -> Subscribe
         self.pubs = []  # [Publish]*
@@ -98,12 +101,16 @@ class Agent():
         self.dbase = Database(self.conf,self.logSpec)
         pythoncom.CoInitialize()
         self.engine = win32com.client.Dispatch("OpenDSSEngine.DSS")
-        self.engine.Start("0")
+        
+        if not self.engine.Start("0"):
+            print("failed to start opendss, check the model file")
+            self.stop()
 
 
-# use the Text interface to OpenDSS
+# set up the interfaces to OpenDSS
         self.text = self.engine.Text
         self.text.Command = "clear"
+        self.error = self.engine.Error
         self.circuit = self.engine.ActiveCircuit
         self.Solution = self.circuit.Solution
         self.element = self.circuit.ActiveCktElement
@@ -121,9 +128,14 @@ class Agent():
         number = self.conf.number_of_steps
         wait_for_cmd = self.conf.wait_for_cmd
         self.text.Command = "compile [" + self.modelpath + '\\' + self.model + "]"
-        self.text.Command = "New EnergyMeter.Feeder Line.L115 1"
+        if self.error.Number > 0:
+            print(self.error.Description)
+            self.stop()
 # Set the simulation mode, step size and the duration
         self.text.Command = "set mode=%s stepsize=%s number=%d" % (mode,stepsize, number)
+        if self.error.Number > 0:
+            print(self.error.Description)
+            self.stop()
         originalSteps = self.Solution.Number
         self.Solution.Number = 1    # this steps the simulation by one at a time
         self.Solution.MaxControlIterations = 20 # prevent the control loop from cycling infinitely
@@ -136,16 +148,24 @@ class Agent():
             pubList = []
             time1 = time.perf_counter()
             self.text.Command = "get time"
+            if self.error.Number > 0:
+                print(self.error.Description)
+                break
             now = self.text.Result
             print("Timestamp: %s" % (str(now)))
             with self.lock:
                 for key in self.subs:
                     for sub in self.subs[key]:
-                        self.circuit.SetActiveElement(sub.obj+'.'+sub.name)
-                        res = getattr(self.element,sub.attr)
-                        print("sub: %s.%s.%s = %s" % (sub.obj,sub.name,sub.attr, str(res)))
-                        sub.client.sendClient(sub.obj,sub.name,sub.attr,res,now)
-                        self.results[key] = (sub.obj,sub.name,sub.attr,res,now)
+                        ret_val = self.circuit.SetActiveElement(sub.obj+'.'+sub.name)
+                        if ret_val < 0:
+                            print("error %s.%s not found" % (sub.obj, sub.name))
+                            sub.client.sendClient(('null',))
+                            continue
+                        else:
+                            res = getattr(self.element,sub.attr)
+                            print("sub: %s.%s.%s = %s" % (sub.obj,sub.name,sub.attr, str(res)))
+                            sub.client.sendClient((sub.obj,sub.name,sub.attr,res,now))
+                            self.results[key] = (sub.obj,sub.name,sub.attr,res,now)
                     if key in self.logSpec:
                         # send result
                         self.dbase.log(self.time,self.logSpec[key],res)
@@ -202,10 +222,17 @@ class Agent():
                 print(now, pub.obj, pub.name, pub.attr, pub.value)
                 if pub.value == 'Open' or pub.value == 'Close':
                     self.text.Command = "%s %s.%s 1" %(pub.value, pub.obj, pub.name)
+                    if self.error.Number > 0:
+                            print(self.error.Description)
+                            continue
                 else:
-                    self.circuit.SetActiveElement(pub.obj+'.'+pub.name)
+                    val = self.circuit.SetActiveElement(pub.obj+'.'+pub.name)
+                    if val < 0:
+                        print("error %s.%s not found" % (pub.obj, pub.name))
+                        continue
 #                    curr_val = self.element.Properties(pub.attr).Val
-                    self.element.Properties(pub.attr).Val = pub.value
+                    else:
+                        self.element.Properties(pub.attr).Val = pub.value
                 key = "%s.%s.%s" %(pub.obj, pub.name, pub.attr)
                 self.results[key] = (pub.obj,pub.name,pub.attr,pub.value,now)
                 if key in self.logSpec:
@@ -215,6 +242,8 @@ class Agent():
         self.stop()
                         
     def stop(self):
+        if not self.ContinueFlag.is_set():
+            self.ContinueFlag.set()
         with self.lock:
             self.StopFlag = True
         try: self.service.stop()
@@ -241,15 +270,19 @@ class Agent():
     def query(self,client,query):
         obj,name,attr = query
         key = '%s.%s.%s' % (obj,name,attr)
+        val = None
         with self.lock:
             if key in self.results:
                 res = self.results[key]
                 return ('ans',res[0],res[1],res[2],res[3],res[4])
             else:
-                self.circuit.SetActiveElement(obj+'.'+name)
-                val = str(self.element.Properties(attr).Val)
-                self.text.Command = "get time"
-                now = self.text.Result
+                qry_ret = self.circuit.SetActiveElement(obj+'.'+name)
+                if qry_ret < 0:
+                    print("error %s.%s not found" % (obj, name))
+                else:
+                    val = str(self.element.Properties(attr).Val)
+                    self.text.Command = "get time"
+                    now = self.text.Result
                 if val:
                     self.results[key] = (obj,name,attr,val,now)
                     return ('ans', obj,name,attr,val,now)

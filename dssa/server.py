@@ -58,10 +58,10 @@ class Client(object):
             res = self.callback(('callClient',arg))
         return res
     
-    def sendClient(self,obj,name,attr,value,stamp):
+    def sendClient(self,payload):
         res = None
         if self.callback != None:
-            res = self.callback(('sendClient',obj,name,attr,value,stamp))
+            res = self.callback(('sendClient',)+payload)
         return res
     
             
