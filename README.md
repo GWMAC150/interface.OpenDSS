@@ -28,10 +28,13 @@ To run the agent the following packages need to be installed:
 5. influxdb: `pip install influxdb`
 6. pyzmq: should be available by default if using Anaconda. If not, then install it using `pip install pyzmq`.
 7. pywin32: should be available by default if using Anaconda. If not, then install it using `pip install pywin32`.
+
 ### Logging
 - InfluxDB service needs to be running either on the windows host (http://richardn.ca/2019/01/04/installing-influxdb-on-windows/) or on the VM. If it is running on the VM then the dbhost and dbport properties need to be set accordingly in the yaml file.
-- Grafana is required for visualization: https://grafana.com/
-
+- Grafana is required for visualization: https://grafana.com/. Once it is installed, the environment needs to be set up: 
+  - Add InfluxDB as a data source - https://grafana.com/docs/grafana/latest/features/datasources/influxdb/
+  - Create a custom dashboard to hold all visualizations - https://grafana.com/docs/grafana/latest/features/dashboard/dashboards/
+  - Add as many panels as required to visualize the logged data - https://grafana.com/docs/grafana/latest/features/panels/panels/
 
 ## Configuration
 
