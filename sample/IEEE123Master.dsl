@@ -1,4 +1,6 @@
 [
 	["Line", "L11", "Voltages"],
-	["Load", "S11a", "kvar"]
+	["Line", "L47", "Voltages"],
+	["Load", "S11a", "kvar"],
+	["Load", "S47", "kvar"]
 ]
