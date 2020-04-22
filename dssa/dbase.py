@@ -76,7 +76,10 @@ class Database(object):
     def flush(self):
         self.logger.info("writing: %s" % str(self.records))
         if self.client:
-            _res = self.client.write_points(self.records)     # , retention_policy=self.retention_policy)
+            try:
+                _res = self.client.write_points(self.records)     # , retention_policy=self.retention_policy)
+            except InfluxDBClientError as e:
+                print("Error while connecting to database: %s" % e.content)
         self.records = []
         
     def stop(self):

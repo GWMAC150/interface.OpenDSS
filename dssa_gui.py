@@ -6,32 +6,30 @@ Created on Sat Apr 11 21:22:25 2020
 """
 
 import tkinter as tk
-from tkinter.filedialog import askopenfilename, askdirectory
+from tkinter import messagebox
+from tkinter.filedialog import askopenfilename
 import os
 from dssa.agent import Agent
 import traceback
 import threading
+#from threading import RLock
+from queue import Queue
+import time
 
 class guiclient():
     def __init__(self):
         self.app_base = ""
         self.app_path = ""
         self.pause_flag = False
+        self.stop_flag = True
         self.dssgui = tk.Tk()
         self.dssgui.title("OpenDSS Agent Launcher")
         self.dssgui.sim_dir = ""
-        self.dssgui.app_dir = ""
+        self.errorout= Queue()
         
         self.greeting = tk.Label(master = self.dssgui, 
                                  text= "OpenDSS Client for RIAPS", background = "orange")
         self.greeting.grid(row=0,columnspan = 3,sticky = "ew")
-        
-        self.folder_btn = tk.Button(master = self.dssgui, text="Folder",
-                                  height=2, width = 5, command=self.select_folder)
-        self.folder_btn.grid(row=1,column=0,sticky = "w")
-        self.folder_label = tk.Label(master = self.dssgui, text= self.dssgui.app_dir,
-                                     bg = "white",anchor ='w')
-        self.folder_label.grid(row=1,column=1,columnspan = 2, sticky = "ew")
         
         self.file_btn = tk.Button(master = self.dssgui, text="Model",
                                   height=2, width = 5, command=self.select_file)
@@ -60,27 +58,38 @@ class guiclient():
         
         
         self.dssgui.mainloop()
-        
-    def select_folder(self):
-        self.dssgui.app_dir = askdirectory(initialdir=os.getcwd(), title="Select simulation file")
-        self.folder_label['text']=self.dssgui.app_dir
-        
+       
+
     def select_file(self):
-        self.dssgui.sim_dir = askopenfilename(initialdir=self.dssgui.app_dir, title="Select simulation file",
+        self.dssgui.sim_dir = askopenfilename(initialdir=os.getcwd(), title="Select simulation file",
                                            filetypes=(("dss files","*.dss"),("all files","*.*")))
+        self.app_path = os.path.dirname(self.dssgui.sim_dir)
         model_name = os.path.basename(self.dssgui.sim_dir)
-        self.file_label['text']= model_name
+        self.app_base = model_name.split('.')[0]
+        self.file_label['text']= self.dssgui.sim_dir
         
     def handle_start(self):
-        app_base = self.file_label['text'].split('.')[0]
-        self.sim_thread = SimulationThread(self.folder_label['text'], app_base)
-        self.sim_thread.start()
-        print('starting simulation...')
+        
+        if not self.stop_flag:
+            messagebox.showinfo("Info", "Stop current simulation")
+        elif self.app_path == "":
+            messagebox.showinfo("Info", "Select file to run")
+        else:
+            self.stop_flag = False
+            self.sim_thread = SimulationThread(self.app_path, self.app_base, self.errorout)
+            self.sim_thread.start()
+            self.popupthread = threading.Thread(target=self.window_popup)
+            self.popupthread.start()
+            print('starting simulation...')
         
     def handle_stop(self):
-        self.sim_thread.cleanup() 
-        self.sim_thread.join()
-        print("simulation stopped")
+        if not self.stop_flag:
+            self.stop_flag = True
+            self.popupthread.join()
+            self.errorout.queue.clear()
+            self.sim_thread.cleanup() 
+            self.sim_thread.join()
+            print("simulation stopped")
         
     def handle_pause_resume(self):
         self.pause_flag = not self.pause_flag
@@ -90,29 +99,41 @@ class guiclient():
             print("resuming simulation")
         self.sim_thread.pause_resume_sim(self.pause_flag)
         
+    def window_popup(self):
+        while not self.stop_flag:
+            if self.errorout.empty():
+                time.sleep(.5)
+            else:
+                errstring = self.errorout.get()
+                messagebox.showerror("Error", errstring)
+                break
+            
+        
 class SimulationThread(threading.Thread):
-    def __init__(self, folder_path, app_base):
+    def __init__(self, folder_path, app_base, simerrorout):
         threading.Thread.__init__(self)
         self.theAgent = None
         self.folder_path = folder_path
         self.app_base = app_base
+        self.simerrorout= simerrorout
         
         
     def run(self):
         try:
             os.chdir(self.folder_path)
-            self.theAgent = Agent(self.app_base, self.folder_path)
+            self.theAgent = Agent(self.app_base, self.folder_path, self.simerrorout)
             self.theAgent.start()       
             self.theAgent.run()       
         except Exception:
-            traceback.print_exc()
+            self.simerrorout.put(traceback.format_exc())
             if self.theAgent != None: self.theAgent.stop()
         
     def pause_resume_sim(self, pause_flag):
         self.theAgent.handle_pause(pause_flag)
         
     def cleanup(self):
-        self.theAgent.stop()
+        if self.theAgent != None: self.theAgent.stop()
+
         
 if __name__ == '__main__':
     dssa_gui = guiclient()

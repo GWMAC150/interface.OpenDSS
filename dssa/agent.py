@@ -31,7 +31,7 @@ LogSpec   = namedtuple("LogSpec", "obj name attr")
 
 class Agent():
     TIME_FORMAT = "%Y-%m-%d %Y %H:%M:%S"
-    def __init__(self,baseName,path):
+    def __init__(self,baseName,path,errorout=None):
         self.base = baseName
         self.model = baseName + '.dss'
         self.logs  = baseName + '.dsl'
@@ -40,48 +40,60 @@ class Agent():
         self.StopFlag = False
         self.ContinueFlag = Event()
         self.ContinueFlag.set()
+        self.errorout = errorout
 
-        assert os.path.isfile(self.model), "specified model file not found in path"
-        assert os.path.isfile(self.cfile), "configuration file dssa.yaml not found in path"
-        
-        try:
-            Config.setup()
-            with open(self.cfile,'r') as f:
-                    self.conf = yaml.load(f,Loader=yaml.Loader)
-        except:
-                raise
-                
-        self.conf.time_delta = Config.convert_duration(self.conf.time_delta)
-        self.conf.wait_for_cmd = Config.convert_duration(self.conf.wait_for_cmd)     
-        assert Config.convert_duration(self.conf.stepsize) > self.conf.wait_for_cmd, "Simulation step size must be greater than the waiting period for the controller response"
-        assert self.conf.time_delta > self.conf.wait_for_cmd, "The physical time step must be greater than the waiting period for the controller response"
+        if not os.path.isfile(self.model): 
+            msg ="specified model file not found in path"
+            print(msg)
+            if self.errorout:
+                self.errorout.put(msg)
             
-        if self.conf.time_base == "now":
-            self.time = datetime.datetime.utcnow()
+        elif not os.path.isfile(self.cfile):
+            msg = "configuration file dssa.yaml not found in path"
+            print(msg)
+            if self.errorout:
+                self.errorout.put(msg)
+            
         else:
-            self.time =  datetime.datetime.strptime(self.conf.time_base,"%Y-%m-%d")
             
-        self.logSpec = {}
-        if os.path.isfile(self.logs):
             try:
-                with open(self.logs,'r') as f:
-                    content = json.load(f)
-                    for item in content:
-                        (obj,name,attr) = item
-                        key = '%s.%s.%s' % (obj,name,attr)
-    #                    drop =  re.compile(r' %s'% unit)
-                        self.logSpec[key] = LogSpec(obj=obj,attr=attr,name=name)
+                Config.setup()
+                with open(self.cfile,'r') as f:
+                        self.conf = yaml.load(f,Loader=yaml.Loader)
             except:
-                raise
-        else:
-            print("dsl log file  not found for the model, continuing without logging")
-        
-        self.subs = {}  # obj.attr -> Subscribe
-        self.pubs = []  # [Publish]*
-        self.clients = {} 
-        self.clientSubs = {}
-        self.results = {} 
-        self.lock = RLock()
+                    raise
+                    
+            self.conf.time_delta = Config.convert_duration(self.conf.time_delta)
+            self.conf.wait_for_cmd = Config.convert_duration(self.conf.wait_for_cmd)     
+            assert Config.convert_duration(self.conf.stepsize) > self.conf.wait_for_cmd, "Simulation step size must be greater than the waiting period for the controller response"
+            assert self.conf.time_delta > self.conf.wait_for_cmd, "The physical time step must be greater than the waiting period for the controller response"
+                
+            if self.conf.time_base == "now":
+                self.time = datetime.datetime.utcnow()
+            else:
+                self.time =  datetime.datetime.strptime(self.conf.time_base,"%Y-%m-%d")
+                
+            self.logSpec = {}
+            if os.path.isfile(self.logs):
+                try:
+                    with open(self.logs,'r') as f:
+                        content = json.load(f)
+                        for item in content:
+                            (obj,name,attr) = item
+                            key = '%s.%s.%s' % (obj,name,attr)
+        #                    drop =  re.compile(r' %s'% unit)
+                            self.logSpec[key] = LogSpec(obj=obj,attr=attr,name=name)
+                except:
+                    raise
+            else:
+                print("dsl log file  not found for the model, continuing without logging")
+            
+            self.subs = {}  # obj.attr -> Subscribe
+            self.pubs = []  # [Publish]*
+            self.clients = {} 
+            self.clientSubs = {}
+            self.results = {} 
+            self.lock = RLock()
 
     def launch(self,cmd,logfile,env):
         context = os.environ.copy()
@@ -91,7 +103,9 @@ class Agent():
                 process = subprocess.Popen(cmd,env=context,stdout=log,stderr=subprocess.STDOUT)
             except:
                 traceback.print_exc()
-                print('launch error: %s' % sys.exc_info()[0])
+                msg = 'launch error: %s' % sys.exc_info()[0]
+                print(msg)
+                if self.errorout: self.errorout.put(msg)
                 process = None
         return process
     
@@ -103,7 +117,8 @@ class Agent():
         self.engine = win32com.client.Dispatch("OpenDSSEngine.DSS")
         
         if not self.engine.Start("0"):
-            print("failed to start opendss, check the model file")
+            msg = "failed to start opendss, check the model file"
+            if self.errorout: self.errorout.put(msg)
             self.stop()
 
 
@@ -130,11 +145,13 @@ class Agent():
         self.text.Command = "compile [" + self.modelpath + '\\' + self.model + "]"
         if self.error.Number > 0:
             print(self.error.Description)
+            if self.errorout: self.errorout.put(self.error.Description)
             self.stop()
 # Set the simulation mode, step size and the duration
         self.text.Command = "set mode=%s stepsize=%s number=%d" % (mode,stepsize, number)
         if self.error.Number > 0:
             print(self.error.Description)
+            if self.errorout: self.errorout.put(self.error.Description)
             self.stop()
         originalSteps = self.Solution.Number
         self.Solution.Number = 1    # this steps the simulation by one at a time
@@ -150,6 +167,7 @@ class Agent():
             self.text.Command = "get time"
             if self.error.Number > 0:
                 print(self.error.Description)
+                if self.errorout: self.errorout.put(self.error.Description)
                 break
             now = self.text.Result
             print("Timestamp: %s" % (str(now)))
@@ -158,7 +176,9 @@ class Agent():
                     for sub in self.subs[key]:
                         ret_val = self.circuit.SetActiveElement(sub.obj+'.'+sub.name)
                         if ret_val < 0:
-                            print("error %s.%s not found" % (sub.obj, sub.name))
+                            msg = "error %s.%s not found" % (sub.obj, sub.name)
+                            print(msg)
+                            if self.errorout: self.errorout.put(msg)
                             sub.client.sendClient(('null',))
                             continue
                         else:
@@ -202,8 +222,8 @@ class Agent():
                     break
             
             self.Solution.FinishTimeStep()
-            
-            self.dbase.flush()
+            if not self.StopFlag:
+                self.dbase.flush()
 # keep track of time steps in simulation time for logging
             self.time = self.time + time_advance
 # step the simulation
@@ -224,11 +244,14 @@ class Agent():
                     self.text.Command = "%s %s.%s 1" %(pub.value, pub.obj, pub.name)
                     if self.error.Number > 0:
                             print(self.error.Description)
+                            if self.errorout: self.errorout.put(self.error.Description)
                             continue
                 else:
                     val = self.circuit.SetActiveElement(pub.obj+'.'+pub.name)
                     if val < 0:
-                        print("error %s.%s not found" % (pub.obj, pub.name))
+                        msg = "error %s.%s not found" % (pub.obj, pub.name)
+                        print(msg)
+                        if self.errorout: self.errorout.put(msg)
                         continue
 #                    curr_val = self.element.Properties(pub.attr).Val
                     else:
@@ -244,8 +267,10 @@ class Agent():
     def stop(self):
         if not self.ContinueFlag.is_set():
             self.ContinueFlag.set()
-        with self.lock:
-            self.StopFlag = True
+        try:
+            with self.lock:
+                self.StopFlag = True
+        except: pass
         try: self.service.stop()
         except: pass
 #        try: self.broker.kill()
@@ -278,7 +303,9 @@ class Agent():
             else:
                 qry_ret = self.circuit.SetActiveElement(obj+'.'+name)
                 if qry_ret < 0:
-                    print("error %s.%s not found" % (obj, name))
+                    msg = "error %s.%s not found" % (obj, name)
+                    print(msg)
+                    if self.errorout: self.errorout.put(msg)
                 else:
                     val = str(self.element.Properties(attr).Val)
                     self.text.Command = "get time"
